@@ -21,7 +21,8 @@ const schemaRegister = Joi.object({
 
 const schemaLogin = Joi.object({
     email: Joi.string().min(6).max(255).required().email(),
-    password: Joi.string().min(6).max(1024).required()
+    password: Joi.string().min(6).max(1024).required(),
+    ip_address: Joi.string().min(6).max(255)
 })
 
 // db connection
@@ -30,8 +31,8 @@ const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@${process
 mongoose.connect(uri,
     { useNewUrlParser: true, useUnifiedTopology: true }
 )
-.then(() => console.log('Base de datos conectada'))
-.catch(e => console.log('error db:', e))
+.then(() => console.log('Database accessed'))
+.catch(e => console.log('error to connect database:', e))
 
 // app routes
 
@@ -58,11 +59,9 @@ router.post('/token', async (req, res) => {
 })
 
 router.delete('/logout', async (req, res) => {
-    const deleted = await refreshToken.deleteOne({token: req.body.token})
-    if(deleted) return res.sendStatus(204).json({
-        message: "logged out"
-    });
-    res.sendStatus(500)
+    await refreshToken.deleteOne({token: req.body.token})
+    .then(() => res.sendStatus(204))
+    .catch((e) => res.status(500))    
 })
 
 router.post('/register', async (req,res) => {
@@ -116,6 +115,9 @@ router.post('/login', async (req, res) => {
 
     const validPassword = await bcrypt.compare(req.body.password, user.password);
     if (!validPassword) return res.status(400).json({ error: 'contraseña no válida' })
+    
+    const updataIpAdress = await User.findOneAndUpdate({email: user.email, last_accesed_ip: req.body.ip_address});
+    if (!updataIpAdress) return res.status(400).json({error: "can't find user and update ip "})
     
     try {
         if(validPassword) {
